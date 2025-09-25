@@ -1,0 +1,9 @@
+1、底层采用Armadillo库
+  设计(channels, rows, cols)三维矩阵
+  封装操作张量的方法：
+  创建张量create_tensor
+  返回张量信息shape,size等
+    可参考torch中张量有哪些操作
+
+  
+  
