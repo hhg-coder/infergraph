@@ -338,6 +338,22 @@ void RuntimeGraph::Build(const std::string &input_name,
   RuntimeOperatorUtils::InitOperatorInput(operators_);
   RuntimeOperatorUtils::InitOperatorOutput(graph_->ops, operators_);
 
+  // ----------- 预分配张量池内存 -----------
+  // 遍历所有算子的输出，预分配张量
+  if (tensor_pool_) {
+    for (const auto& op : operators_) {
+      // 每个节点只有一个 output_operands（指向 RuntimeOperand）
+      const auto& operand = op->output_operands;
+      if (operand && !operand->shapes.empty()) {
+        uint32_t c = operand->shapes[0];
+        uint32_t h = operand->shapes.size() > 1 ? operand->shapes[1] : 1;
+        uint32_t w = operand->shapes.size() > 2 ? operand->shapes[2] : 1;
+        tensor_pool_->PreAllocate(c, h, w, 1); // 预分配1个，可根据实际需求调整数量
+      }
+    }
+  }
+  // ----------- 预分配张量池内存 -----------
+
   // 构建拓扑顺序
   topo_operators_.clear();
   for (const auto &[_, op] : operators_maps_) {

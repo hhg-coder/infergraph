@@ -71,13 +71,15 @@ class RuntimeGraph {
 
   std::vector<std::shared_ptr<Tensor<float>>> Forward(
       const std::vector<std::shared_ptr<Tensor<float>>> &inputs, bool debug);
-
+    // 新增：获取张量池指针接口
+  std::shared_ptr<TensorPool> tensor_pool() const { return tensor_pool_; }
  private:
   /**
    * 初始化kuiper infer计算图节点中的输入操作数
    * @param inputs pnnx中的输入操作数
    * @param runtime_operator 计算图节点
    */
+  std::shared_ptr<TensorPool> tensor_pool_;
   static void InitGraphOperatorsInput(
       const std::vector<pnnx::Operand *> &inputs,
       const std::shared_ptr<RuntimeOperator> &runtime_operator);
