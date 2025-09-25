@@ -1,46 +1,76 @@
-data 张量类Tensor的实现和Tensor初始化方法
-layer 算子的实现
-parser Pnnx表达式的解析类
-runtime 计算图结构，解析和运行时相关
+1. include/ 头文件目录
+status_code.hpp
+定义通用的状态码、错误码等。
 
-自制深度学习推理框架：
-1、张量：
-实现张量的各种操作
-2、计算图：
-PNNX是旨在将pytorch模型导出为高效、简洁的计算图；
-为什么要重新将pytorch模型再转换一次呢？我的理解是pytorch的框架是动态图，即可以灵活地对中间层进行操作，像普通代码那样灵活debug，
-那么，在算子层面的计算就不会优化太多，比如不会使用算子融合等操作；但是自制框架可以去做这些；
-（ONNX使用多个小算子去组合、等价一个复杂算子的设计，也是为了用尽可能少的算子去兼容更多的训练框架。
-但是过于细碎的计算图会不仅不利于推理的优化。另外，拆分的层次过于细致，也会导致算法工程师难以将
-导出的模型和原始模型进行结构上的相互对应。）
-计算图包括以下几个部分：
-一、Operator: 深度学习计算图中的计算节点。
-二、Graph: 有多个Operator串联得到的有向无环图，规定了各个计算节点（Operator）执行的流程和顺序。
-三、Layer: 计算节点中运算的具体执行者，Layer类先读取输入张量中的数据，然后对输入张量进行计算，
-        得到的结果存放到计算节点的输出张量中，当然，不同的算子中Layer的计算过程会不一致。
-四、Tensor: 用于存放多维数据的数据结构，方便数据在计算节点之间传递，同时该结构也封装矩阵乘、点积
-        等与矩阵相关的基本操作。
+data/
 
+tensor.hpp：张量（Tensor）数据结构定义，核心数据存储与操作。
+tensor_util.hpp：张量相关的工具函数，如数据变换、初始化等。
+tensor_pool.hpp：张量池，负责张量的内存复用与管理。
+load_data.hpp：数据加载相关函数。
+layer/
 
+abstract/
+layer.hpp：Layer 基类，所有算子的抽象接口。
+param_layer.hpp、non_param_layer.hpp：有参数/无参数 Layer 的抽象基类。
+layer_factory.hpp：Layer 工厂，负责算子的注册与创建。
+details/
+各种具体算子的实现头文件，如 convolution、relu、softmax、cat、flatten、yolo_detect 等。
+parser/
 
+parse_expression.hpp：表达式解析相关，支持 ExpressionLayer 的表达式运算。
+runtime/
 
-框架支持哪些算子？如何扩展新的算子？
-框架采用了模块化设计，扩展新算子只需实现算子逻辑、注册到工厂，并补充解析和测试，流程清晰，易于维护和扩展。
+ir.h：IR（中间表示）相关定义。
+runtime_ir.hpp：推理主流程与计算图（RuntimeGraph）定义。
+runtime_op.hpp：计算图节点（RuntimeOperator）结构体定义。
+runtime_operand.hpp：节点输入输出（Operand）结构体定义。
+runtime_attr.hpp：节点权重、属性结构体定义。
+runtime_datatype.hpp：数据类型定义。
+runtime_parameter.hpp：参数类型定义。
+store_zip.hpp：模型文件压缩/解压相关。
+utils/
 
+math/fmath.hpp：数学相关工具函数。
+time/time_logging.hpp：时间统计与日志工具。
+2. source/ 源码目录
+ir.cpp、runtime_ir.cpp、runtime_op.cpp、runtime_attr.cpp、runtime_operand.cpp、runtime_parameter.cpp
+对应 include/runtime/ 下各头文件的实现，负责模型加载、计算图构建、推理调度、参数和权重管理等。
 
-增加的工作：
-conv+bn+relu层的算子融合
-参考ggml的做法，提前预分配一定的内存
+tensor.cpp、tensor_utils.cpp、tensor_pool.cpp
+张量相关实现，包括数据结构、工具函数和张量池。
 
-设计张量池（Tensor Pool）
-实现一个全局或局部的张量池（如 TensorPool），用于管理和复用中间张量对象。
-每次算子需要输出张量时，优先从池中获取已有的空闲张量，而不是新分配。
-推理结束后，将不用的张量归还池中，等待下次复用。
-静态图推理时预分配
-在模型 build 阶段，分析每个算子的输入输出 shape，提前为所有中间节点分配好张量内存。
-推理时直接复用这些预分配的张量，避免每次 forward 时 new/delete。
-释放与生命周期管理
-通过引用计数或拓扑排序，确定每个中间张量的最后一次使用点，及时归还池中。
-可以结合智能指针和自定义 deleter 实现自动归还。
+load_data.cpp
+数据加载实现。
 
+layer/abstract/
+Layer 抽象基类和工厂的实现。
 
+layer/details/
+各种算子的实现，如卷积、激活、池化、拼接、表达式、YOLO 检测等。
+
+parser/parse_expression.cpp
+表达式解析实现。
+
+3. test/ 测试目录
+test_resnet.cpp、test_yolov5.cpp
+针对不同模型的推理测试代码。
+
+image_util.cpp/hpp
+图像预处理、加载等工具函数。
+
+4. model_file/ 模型文件目录
+存放 pnnx 导出的模型结构和权重文件（.param/.bin），以及测试图片。
+5. log/
+日志输出目录。
+
+依赖关系简述
+runtime/ 依赖 data/（张量）、layer/（算子）、parser/（表达式）、utils/（工具）。
+layer/ 依赖 data/（张量）、utils/（数学工具）。
+test/ 依赖 runtime/、layer/、data/。
+parser/ 主要为 ExpressionLayer 服务。
+
+本项目采用模块化设计，核心为 runtime（推理主流程）、layer（算子实现）、data（张量与内存）、parser（表达式）、utils（工具），各模块通过头文件和实现文件解耦，便于维护和扩展。
+7. CMakeLists.txt、main.cpp
+CMakeLists.txt：项目构建配置。
+main.cpp：程序入口
